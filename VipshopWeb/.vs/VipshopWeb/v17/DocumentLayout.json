@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\Fontes\\VipshopWeb\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{DFF4B262-F764-45C1-9709-4FA283AE2363}|VipshopWeb.csproj|d:\\fontes\\vipshopweb\\components\\pages\\admin\\adminempresas.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{DFF4B262-F764-45C1-9709-4FA283AE2363}|VipshopWeb.csproj|solutionrelative:components\\pages\\admin\\adminempresas.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "AdminEmpresas.razor",
+              "DocumentMoniker": "D:\\Fontes\\VipshopWeb\\Components\\Pages\\Admin\\AdminEmpresas.razor",
+              "RelativeDocumentMoniker": "Components\\Pages\\Admin\\AdminEmpresas.razor",
+              "ToolTip": "D:\\Fontes\\VipshopWeb\\Components\\Pages\\Admin\\AdminEmpresas.razor",
+              "RelativeToolTip": "Components\\Pages\\Admin\\AdminEmpresas.razor",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2026-06-10T00:17:52.347Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

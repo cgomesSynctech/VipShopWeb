@@ -1,0 +1,124 @@
+﻿@page "/admin/empresas"
+@rendermode InteractiveServer
+
+@using Microsoft.EntityFrameworkCore
+@using VipshopWeb.Core.EntitiesCatalog
+@inject IDbContextFactory<VipshopDbContext> DbFactory
+@inject ITenantProvider TenantProvider
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudSnackbarProvider /> @* Garante a exibição visual da notificação nesta página *@
+    <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold mb-2">Painel do Administrador (SaaS)</MudText>
+
+    <MudGrid>
+        <!-- FORMULÁRIO DE CADASTRO -->
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="4" Class="pa-6" Style="border-radius: 12px;">
+                <MudText Typo="Typo.h6" Class="mb-4 font-weight-bold">Nova Empresa</MudText>
+                <MudForm @ref="form" @bind-IsValid="@formValido">
+                    <MudTextField @bind-Value="novaEmpresa.CnpjCpf" Label="CNPJ ou CPF (Apenas números)"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="14" Class="mb-3" />
+
+                    <MudTextField @bind-Value="novaEmpresa.RazaoSocial" Label="Razão Social"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="150" Class="mb-3" />
+
+                    <MudTextField @bind-Value="novaEmpresa.NomeFantasia" Label="Nome Fantasia (Opcional)"
+                                  Variant="Variant.Outlined" MaxLength="150" Class="mb-4" />
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" OnClick="CadastrarEProvisionar">
+                        Ativar & Criar Banco
+                    </MudButton>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+
+        <!-- LISTAGEM DE EMPRESAS -->
+        <MudItem xs="12" md="8">
+            <MudTable Items="@listaEmpresas" Dense="true" Hover="true" Bordered="true" Striped="true" Elevation="2">
+                <HeaderContent>
+                    <MudTh>Razão Social</MudTh>
+                    <MudTh>CNPJ / CPF</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Data Ativação</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.RazaoSocial</MudTd>
+                    <MudTd>@context.CnpjCpf</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Color="@(context.Ativo? Color.Success: Color.Error)" Size="Size.Small">
+                            @(context.Ativo ? "Ativo" : "Bloqueado")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>@context.DataContratacao.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private MudForm form = null!;
+    private bool formValido;
+    private List<Empresa> listaEmpresas = new();
+    private Empresa novaEmpresa = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarEmpresas();
+    }
+
+    private async Task CarregarEmpresas()
+    {
+        try
+        {
+            // Aponta temporariamente para o banco do catálogo global
+            TenantProvider.SetCatalog();
+            using var context = await DbFactory.CreateDbContextAsync();
+            listaEmpresas = await context.Set<Empresa>().OrderByDescending(e => e.DataContratacao).ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao acessar catálogo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CadastrarEProvisionar()
+    {
+        await form.Validate();
+        if (!formValido) return;
+
+        string cnpjLimpo = new string(novaEmpresa.CnpjCpf.Where(char.IsDigit).ToArray());
+        novaEmpresa.CnpjCpf = cnpjLimpo;
+
+        try
+        {
+            // Passo 1: Salvar o registro da nova empresa no Banco Central (Catálogo)
+            TenantProvider.SetCatalog();
+            using (var contextCatalogo = await DbFactory.CreateDbContextAsync())
+            {
+                contextCatalogo.Set<Empresa>().Add(novaEmpresa);
+                await contextCatalogo.SaveChangesAsync();
+            }
+
+            // Passo 2: A Mágica do Multi-Tenant — Provisionar o banco de dados isolado do cliente
+            // Direcionamos o provedor para o nome do banco que vai nascer (ex: db_12345678000199)
+            TenantProvider.SetTenant(cnpjLimpo);
+
+            using (var contextNovoCliente = await DbFactory.CreateDbContextAsync())
+            {
+                // O EF Core cria o banco físico no PostgreSQL e roda todas as migrações acumuladas
+                await contextNovoCliente.Database.MigrateAsync();
+            }
+
+            Snackbar.Add($"Empresa {novaEmpresa.RazaoSocial} ativada e Banco de Dados provisionado!", Severity.Success);
+
+            novaEmpresa = new(); // Limpa formulário
+            await CarregarEmpresas(); // Atualiza grid
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Falha no provisionamento: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+}

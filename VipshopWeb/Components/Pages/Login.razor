@@ -1,0 +1,119 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VipshopWeb.Auth
+@inject ISnackbar Snackbar
+@inject ITenantProvider TenantProvider
+@inject IDbContextFactory<VipshopDbContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+<MudSnackbarProvider />
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="4" Class="pa-8 d-flex flex-column gap-4" Style="border-radius: 12px;">
+        <div class="d-flex flex-column align-center mb-4">
+            <MudText Typo="Typo.h3" Color="Color.Primary" Class="font-weight-bold">VipshopWeb</MudText>
+            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">ERP Modular & Escalonável</MudText>
+        </div>
+
+        <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-2">Acesse sua conta corporativa</MudText>
+
+        <!-- Campo de CNPJ/CPF com máscara automática do MudBlazor -->
+        <MudTextField @bind-Value="loginModel.EmpresaDocumento"
+                      Label="CNPJ ou CPF da Empresa"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Business"
+                      Clearable="true" />
+
+        <MudTextField @bind-Value="loginModel.Login"
+                      Label="Usuário"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Person"
+                      Clearable="true" />
+
+        <MudTextField @bind-Value="loginModel.Senha"
+                      Label="Senha"
+                      InputType="InputType.Password"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   OnClick="RealizarLogin"
+                   Class="mt-4 py-3"
+                   Style="border-radius: 8px;">
+            Entrar no Sistema
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private LoginModel loginModel = new();
+
+    private async Task RealizarLogin()
+    {
+        using var context = await DbFactory.CreateDbContextAsync();
+        // Executa automaticamente qualquer migração pendente
+        await context.Database.MigrateAsync();
+
+        if (string.IsNullOrWhiteSpace(loginModel.EmpresaDocumento) ||
+            string.IsNullOrWhiteSpace(loginModel.Login) ||
+            string.IsNullOrWhiteSpace(loginModel.Senha))
+        {
+            Snackbar.Add("Por favor, preencha todos os campos obrigatórios.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            // 1. Limpa pontos e traços do documento digitado para achar o nome exato do banco (ex: db_12345678000199)
+            string tenantId = new string(loginModel.EmpresaDocumento.Where(char.IsDigit).ToArray());
+
+            // 2. Altera dinamicamente a conexão do provedor para apontar para o banco do cliente
+            TenantProvider.SetTenant(tenantId);
+
+            // 3. Abre o escopo do banco de dados específico da empresa
+            //using  context = await DbFactory.CreateDbContextAsync();
+
+            // 4. Busca o usuário simples na tabela do banco específico
+            var usuario = await context.Usuarios
+                .FirstOrDefaultAsync(u => u.Login.ToLower() == loginModel.Login.ToLower() && u.Ativo);
+
+            // 5. Validação temporária direta (No futuro, você usará hash BCrypt ou SHA256 aqui)
+            if (usuario != null && usuario.SenhaHash == loginModel.Senha)
+            {
+                // Notifica o Blazor que o login foi efetuado e guarda o estado
+                ((CustomAuthStateProvider)AuthStateProvider).NotifyUserLogin(usuario.Nome, usuario.Login, tenantId);
+              
+                Snackbar.Add($"Bem-vindo de volta, {usuario.Nome}!", Severity.Success);
+                // Navigation.NavigateTo("/");
+                // Navigation.NavigateTo("/", forceLoad: true);
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                Snackbar.Add("Usuário ou senha inválidos para esta empresa.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            
+           // Captura falhas de conexão caso o banco com o CNPJ informado não exista fisicamente no PostgreSQL ainda
+            var erroReal = ex.InnerException?.Message ?? ex.Message;
+            Snackbar.Add($"Erro de Conexão: {erroReal}", Severity.Error);
+           //Snackbar.Add("Não foi possível conectar à base de dados desta empresa. Verifique o documento.", Severity.Error);
+        }
+    }
+
+    public class LoginModel
+    {
+        public string EmpresaDocumento { get; set; } = string.Empty;
+        public string Login { get; set; } = string.Empty;
+        public string Senha { get; set; } = string.Empty;
+    }
+}

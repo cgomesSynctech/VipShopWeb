@@ -1,0 +1,17 @@
+D:\Fontes\VipshopWeb.Infrastructure\bin\Debug\net9.0\VipshopWeb.Infrastructure.deps.json
+D:\Fontes\VipshopWeb.Infrastructure\bin\Debug\net9.0\VipshopWeb.Infrastructure.runtimeconfig.json
+D:\Fontes\VipshopWeb.Infrastructure\bin\Debug\net9.0\VipshopWeb.Infrastructure.dll
+D:\Fontes\VipshopWeb.Infrastructure\bin\Debug\net9.0\VipshopWeb.Infrastructure.pdb
+D:\Fontes\VipshopWeb.Infrastructure\bin\Debug\net9.0\VipshopWeb.Core.dll
+D:\Fontes\VipshopWeb.Infrastructure\bin\Debug\net9.0\VipshopWeb.Core.pdb
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.csproj.AssemblyReference.cache
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.AssemblyInfoInputs.cache
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.AssemblyInfo.cs
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.csproj.CoreCompileInputs.cache
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopW.70FADCEE.Up2Date
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.dll
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\refint\VipshopWeb.Infrastructure.dll
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.pdb
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\VipshopWeb.Infrastructure.genruntimeconfig.cache
+D:\Fontes\VipshopWeb.Infrastructure\obj\Debug\net9.0\ref\VipshopWeb.Infrastructure.dll

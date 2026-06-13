@@ -1,0 +1,11 @@
+D:\Fontes\Vipshop.Core\bin\Debug\net9.0\VipshopWeb.Core.deps.json
+D:\Fontes\Vipshop.Core\bin\Debug\net9.0\VipshopWeb.Core.dll
+D:\Fontes\Vipshop.Core\bin\Debug\net9.0\VipshopWeb.Core.pdb
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\VipshopWeb.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\VipshopWeb.Core.AssemblyInfoInputs.cache
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\VipshopWeb.Core.AssemblyInfo.cs
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\VipshopWeb.Core.csproj.CoreCompileInputs.cache
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\VipshopWeb.Core.dll
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\refint\VipshopWeb.Core.dll
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\VipshopWeb.Core.pdb
+D:\Fontes\Vipshop.Core\obj\Debug\net9.0\ref\VipshopWeb.Core.dll

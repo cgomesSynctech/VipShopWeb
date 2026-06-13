@@ -1,0 +1,188 @@
+﻿@page "/clientes"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VipshopWeb.Core.Entities
+@inject IDbContextFactory<VipshopDbContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold mb-4">Cadastro de Clientes</MudText>
+    <MudText Typo="Typo.subtitle1" Class="mb-6">Gerenciamento e registros de clientes da empresa</MudText>
+
+    <!-- TABELA DE LISTAGEM DE CLIENTES -->
+    <MudTable Items="@listaClientes" Dense="true" Hover="true" Bordered="true" Striped="true" Class="mb-8" Elevation="2">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Clientes Cadastrados</MudText>
+            <MudSpacer />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Nome / Razão Social</MudTh>
+            <MudTh>CPF / CNPJ</MudTh>
+            <MudTh>Tipo</MudTh>
+            <MudTh>Limite de Crédito</MudTh>
+            <MudTh>Observação</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Nome / Razão Social">@context.Favorecido.NomeRazaoSocial</MudTd>
+            <MudTd DataLabel="CPF / CNPJ">@context.Favorecido.Documento</MudTd>
+            <MudTd DataLabel="Tipo">@context.Favorecido.TipoPessoa</MudTd>
+            <MudTd DataLabel="Limite de Crédito">@context.LimiteCredito.ToString("C2", _culture)</MudTd>
+            <MudTd DataLabel="Observação">@context.Observacao</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Align="Align.Center" Class="pa-4">Nenhum cliente cadastrado nesta empresa até o momento.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    <!-- FORMULÁRIO DE CADASTRO -->
+    <MudPaper Elevation="4" Class="pa-8" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h5" Class="mb-6 font-weight-bold">Novo Cliente</MudText>
+
+        <MudForm @ref="form" @bind-IsValid="@formValido">
+            <MudGrid>
+                <!-- Campos em Comum (Favorecido) -->
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="string" Label="Tipo de Pessoa" Variant="Variant.Outlined"
+                               @bind-Value="favorecidoModel.TipoPessoa" Required="true" AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@("PF")">Pessoa Física (PF)</MudSelectItem>
+                        <MudSelectItem Value="@("PJ")">Pessoa Jurídica (PJ)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudTextField @bind-Value="favorecidoModel.Documento"
+                              Label="CPF ou CNPJ"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Clearable="true"
+                              Mask="@(favorecidoModel.TipoPessoa == "PF" ? c_cpfMask : c_cnpjMask)"
+                              HelperText="@($"Digite o {(favorecidoModel.TipoPessoa == "PF" ? "CPF" : "CNPJ")} do cliente")" />
+
+
+                <MudItem xs="12" sm="4"></MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="favorecidoModel.NomeRazaoSocial" Label="Nome / Razão Social"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="150" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="favorecidoModel.NomeFantasiaApelido" Label="Nome Fantasia / Apelido"
+                                  Variant="Variant.Outlined" MaxLength="150" />
+                </MudItem>
+
+                <!-- Campos Específicos de Cliente -->
+                <MudItem xs="12">
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.button" Color="Color.Primary" Class="font-weight-bold">Informações Comerciais</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="clienteModel.LimiteCredito" Label="Limite de Crédito"
+                                     Variant="Variant.Outlined" Format="N2" Culture="@_culture" HideSpinButtons="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="clienteModel.Observacao" Label="Observações internas"
+                                  Variant="Variant.Outlined" Lines="1" />
+                </MudItem>
+
+                <!-- Botão de Gravação -->
+                <MudItem xs="12" Class="d-flex justify-end mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="SalvarCliente" Class="px-8">
+                        Gravar Cliente
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private IMask c_cpfMask = new PatternMask("000.000.000-00");
+    private IMask c_cnpjMask = new PatternMask("00.000.000/0000-00");
+    private MudForm form = null!;
+    private bool formValido;
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+
+    private List<Cliente> listaClientes = new();
+
+    private Favorecido favorecidoModel = new() { TipoFavorecidoId = 1, TipoPessoa = "PJ" }; // 1 fixo = Cliente
+    private Cliente clienteModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var tenantClaim = authState.User.FindFirst("Tenant")?.Value;
+
+        if (!string.IsNullOrEmpty(tenantClaim))
+        {
+            TenantProvider.SetTenant(tenantClaim);
+            await CarregarGrid();
+        }
+        else
+        {
+            Snackbar.Add("Sessão inválida. Por favor, faça login novamente.", Severity.Error);
+        }
+    }
+
+    private async Task CarregarGrid()
+    {
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+            // Traz o cliente incluindo os dados da tabela pai de favorecidos
+            listaClientes = await context.Clientes
+                .Include(c => c.Favorecido)
+                .OrderByDescending(c => c.Favorecido.DataCadastro)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar clientes: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SalvarCliente()
+    {
+        await form.Validate();
+        if (!formValido)
+        {
+            Snackbar.Add("Por favor, preencha os campos obrigatórios.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+
+            // Limpa formatação crua do documento
+            favorecidoModel.Documento = new string(favorecidoModel.Documento.Where(char.IsDigit).ToArray());
+            favorecidoModel.DataCadastro = DateTime.UtcNow;
+
+            // Vincula o relacionamento 1:1 físico exigido pelo EF Core
+            clienteModel.Favorecido = favorecidoModel;
+
+            // Adiciona a entidade filha (o EF automaticamente entende e insere o Favorecido primeiro)
+            context.Clientes.Add(clienteModel);
+            await context.SaveChangesAsync();
+
+            Snackbar.Add($"Cliente {favorecidoModel.NomeRazaoSocial} gravado com sucesso!", Severity.Success);
+
+            ResetarFormulario();
+            await CarregarGrid();
+        }
+        catch (Exception ex)
+        {
+            var erroMsg = ex.InnerException?.Message ?? ex.Message;
+            Snackbar.Add($"Falha ao salvar cliente: {erroMsg}", Severity.Error);
+        }
+    }
+
+    private void ResetarFormulario()
+    {
+        favorecidoModel = new() { TipoFavorecidoId = 1, TipoPessoa = "PJ" };
+        clienteModel = new();
+    }
+}

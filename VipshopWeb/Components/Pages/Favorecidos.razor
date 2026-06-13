@@ -1,0 +1,270 @@
+﻿@page "/favorecidos"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using VipshopWeb.Core.Entities
+@inject IDbContextFactory<VipshopDbContext> DbFactory
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold mb-4">Gestão de Favorecidos</MudText>
+    <MudText Typo="Typo.subtitle1" Class="mb-6">Cadastro unificado de Clientes, Fornecedores e Funcionários</MudText>
+
+    <!-- TABELA DE LISTAGEM -->
+    <MudTable Items="@listaFavorecidos" Dense="true" Hover="true" Bordered="true" Striped="true" Class="mb-8" Elevation="2">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Registros Cadastrados</MudText>
+            <MudSpacer />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Nome / Razão Social</MudTh>
+            <MudTh>CPF / CNPJ</MudTh>
+            <MudTh>Tipo Pessoa</MudTh>
+            <MudTh>Categoria</MudTh>
+            <MudTh>Data Cadastro</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Nome / Razão Social">@context.NomeRazaoSocial</MudTd>
+            <MudTd DataLabel="CPF / CNPJ">@context.Documento</MudTd>
+            <MudTd DataLabel="Tipo Pessoa">@context.TipoPessoa</MudTd>
+            <MudTd DataLabel="Categoria">
+                <MudChip T="string" Color="@ObterCorChip(context.TipoFavorecidoId)" Size="Size.Small">
+                    @(context.TipoFavorecido?.Descricao ?? "Não Definido")
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Data Cadastro">@context.DataCadastro.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Align="Align.Center" Class="pa-4">Nenhum favorecido cadastrado nesta empresa até o momento.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    <!-- FORMULÁRIO DINÂMICO -->
+    <MudPaper Elevation="4" Class="pa-8" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h5" Class="mb-6 font-weight-bold">Novo Registro</MudText>
+
+        <MudForm @ref="form" @bind-IsValid="@formValido">
+            <MudGrid>
+                <!-- Dados Gerais -->
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="int" Label="Categoria do Favorecido" Variant="Variant.Outlined"
+                               @bind-Value="model.TipoFavorecidoId" Required="true" AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="1">1 - Cliente</MudSelectItem>
+                        <MudSelectItem Value="2">2 - Fornecedor</MudSelectItem>
+                        <MudSelectItem Value="3">3 - Funcionário</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="string" Label="Tipo de Pessoa" Variant="Variant.Outlined"
+                               @bind-Value="model.TipoPessoa" Required="true" AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@("PF")">Pessoa Física (PF)</MudSelectItem>
+                        <MudSelectItem Value="@("PJ")">Pessoa Jurídica (PJ)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="model.Documento" Label="CPF ou CNPJ (Apenas números)"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="14" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="model.NomeRazaoSocial" Label="Nome / Razão Social"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="150" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="model.NomeFantasiaApelido" Label="Nome Fantasia / Apelido"
+                                  Variant="Variant.Outlined" MaxLength="150" />
+                </MudItem>
+
+                <!-- PAINÉIS ESPECÍFICOS CONDICIONAIS -->
+                @if (model.TipoFavorecidoId == 1)
+                {
+                    <!-- Campos de Cliente -->
+                    <MudItem xs="12">
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.button" Color="Color.Primary" Class="font-weight-bold">Dados do Cliente</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudNumericField @bind-Value="camposCliente.LimiteCredito" Label="Limite de Crédito"
+                                         Variant="Variant.Outlined" Format="N2" Culture="@_culture" HideSpinButtons="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField @bind-Value="camposCliente.Observacao" Label="Observações internas"
+                                      Variant="Variant.Outlined" Lines="1" />
+                    </MudItem>
+                }
+                else if (model.TipoFavorecidoId == 2)
+                {
+                    <!-- Campos de Fornecedor -->
+                    <MudItem xs="12">
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.button" Color="Color.Primary" Class="font-weight-bold">Dados do Fornecedor</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="camposFornecedor.InscricaoEstadual" Label="Inscrição Estadual"
+                                      Variant="Variant.Outlined" MaxLength="20" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="camposFornecedor.PrazoEntregaEstimadoDias" Label="Prazo de Entrega Estimado (Dias)"
+                                         Variant="Variant.Outlined" Min="0" HideSpinButtons="false" />
+                    </MudItem>
+                }
+                else if (model.TipoFavorecidoId == 3)
+                {
+                    <!-- Campos de Funcionário -->
+                    <MudItem xs="12">
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.button" Color="Color.Primary" Class="font-weight-bold">Dados do Funcionário</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudTextField @bind-Value="camposFuncionario.Ctps" Label="Nº Carteira de Trabalho (CTPS)"
+                                      Variant="Variant.Outlined" MaxLength="20" />
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudNumericField @bind-Value="camposFuncionario.Salario" Label="Salário Base"
+                                         Variant="Variant.Outlined" Format="N2" Culture="@_culture" HideSpinButtons="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudDatePicker @bind-Date="dataAdmissaoNulavel" Label="Data de Admissão"
+                                       Editable="true" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy" />
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudTextField @bind-Value="camposFuncionario.Cargo" Label="Cargo Executado"
+                                      Variant="Variant.Outlined" Required="true" MaxLength="100" />
+                    </MudItem>
+                }
+
+                <!-- Botão de Ação -->
+                <MudItem xs="12" Class="d-flex justify-end mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="SalvarRegistro" Class="px-8">
+                        Gravar Cadastro
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form = null!;
+    private bool formValido;
+    private System.Globalization.CultureInfo _culture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+
+    private List<Favorecido> listaFavorecidos = new();
+
+    // Instâncias separadas para o modelo principal e complementos de herança
+    private Favorecido model = new() { TipoFavorecidoId = 1, TipoPessoa = "PJ" };
+    private Cliente camposCliente = new();
+    private Fornecedor camposFornecedor = new();
+    private Funcionario camposFuncionario = new();
+    private DateTime? dataAdmissaoNulavel = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Recupera o estado de autenticação do usuário logado nesta aba
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // 2. Busca o claim "Tenant" que gravamos lá na tela de Login
+        var tenantClaim = user.FindFirst("Tenant")?.Value;
+
+        if (!string.IsNullOrEmpty(tenantClaim))
+        {
+            // 3. Força o TenantProvider a fixar o banco correto para esta página
+            TenantProvider.SetTenant(tenantClaim);
+
+            // 4. Agora sim, com o banco certo ativo, carrega os dados com segurança
+            await CarregarGrid();
+        }
+        else
+        {
+            Snackbar.Add("Sessão inválida ou expirada. Por favor, faça login novamente.", Severity.Error);
+        }
+    }
+
+
+    private async Task CarregarGrid()
+    {
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+            listaFavorecidos = await context.Favorecidos
+                .Include(f => f.TipoFavorecido)
+                .OrderByDescending(f => f.DataCadastro)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar registros: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SalvarRegistro()
+    {
+        await form.Validate();
+        if (!formValido)
+        {
+            Snackbar.Add("Por favor, preencha corretamente os campos obrigatórios.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+
+            // Limpa formatação crua do documento
+            model.Documento = new string(model.Documento.Where(char.IsDigit).ToArray());
+            model.DataCadastro = DateTime.UtcNow;
+
+            // Vincula a herança TPT correspondente ao banco com base na categoria ativa
+            if (model.TipoFavorecidoId == 1)
+            {
+                camposCliente.Favorecido = model;
+                context.Clientes.Add(camposCliente);
+            }
+            else if (model.TipoFavorecidoId == 2)
+            {
+                camposFornecedor.Favorecido = model;
+                context.Fornecedores.Add(camposFornecedor);
+            }
+            else if (model.TipoFavorecidoId == 3)
+            {
+                camposFuncionario.DataAdmissao = dataAdmissaoNulavel ?? DateTime.UtcNow;
+                camposFuncionario.Favorecido = model;
+                context.Funcionarios.Add(camposFuncionario);
+            }
+
+            await context.SaveChangesAsync();
+            Snackbar.Add($"{model.NomeRazaoSocial} gravado com sucesso!", Severity.Success);
+
+            // Reinicializa os objetos limpando o formulário para um próximo cadastro
+            ResetarFormulario();
+            await CarregarGrid();
+        }
+        catch (Exception ex)
+        {
+            var erroMsg = ex.InnerException?.Message ?? ex.Message;
+            Snackbar.Add($"Falha ao salvar no banco de dados: {erroMsg}", Severity.Error);
+        }
+    }
+
+    private void ResetarFormulario()
+    {
+        model = new() { TipoFavorecidoId = 1, TipoPessoa = "PJ" };
+        camposCliente = new();
+        camposFornecedor = new();
+        camposFuncionario = new();
+        dataAdmissaoNulavel = DateTime.Today;
+    }
+
+    private Color ObterCorChip(int tipoId) => tipoId switch
+    {
+        1 => Color.Success,
+        2 => Color.Warning,
+        3 => Color.Info,
+        _ => Color.Default
+    };
+}

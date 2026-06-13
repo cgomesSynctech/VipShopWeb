@@ -1,0 +1,127 @@
+﻿@page "/produtos"
+@using VipshopWeb.Core.Entities
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold mb-4">Cadastro de Produtos</MudText>
+    <MudText Typo="Typo.subtitle1" Class="mb-6">Gerenciamento de itens de estoque e mercadorias</MudText>
+
+    <!-- TABELA DE LISTAGEM DE PRODUTOS -->
+    <MudTable Items="@listaProdutos" Dense="true" Hover="true" Bordered="true" Striped="true" Class="mb-8" Elevation="2">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Produtos em Estoque</MudText>
+            <MudSpacer />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Descrição</MudTh>
+            <MudTh>Grupo</MudTh>
+            <MudTh>Código de Barras</MudTh>
+            <MudTh>Preço de Venda</MudTh>
+            <MudTh>Qtd. Estoque</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh Style="text-align: right; width: 150px;">Ações</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Descrição">@context.Descricao</MudTd>
+            <MudTd DataLabel="Grupo">
+                <MudChip T="string" Color="Color.Dark" Variant="Variant.Outlined" Size="Size.Small">
+                    @($"{context.Grupo?.Codigo} - {context.Grupo?.Descricao}")
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Código de Barras">@(context.CodigoBarras ?? "Não Informado")</MudTd>
+            <MudTd DataLabel="Preço de Venda">@context.PrecoVenda.ToString("C2", _culture)</MudTd>
+            <MudTd DataLabel="Qtd. Estoque">@context.QuantidadeEstoque.ToString("N2", _culture)</MudTd>
+            <MudTd DataLabel="Status">
+                <MudChip T="string" Color="@(context.Ativo? Color.Success: Color.Error)" Size="Size.Small">
+                    @(context.Ativo ? "Ativo" : "Inativo")
+                </MudChip>
+            </MudTd>
+            <MudTd Style="text-align: right;">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                               OnClick="@(() => PrepararEdicao(context))" Tooltip="Editar Produto" />
+
+                <MudIconButton Icon="@(context.Ativo? Icons.Material.Filled.ToggleOn : Icons.Material.Filled.ToggleOff)"
+                               Color="@(context.Ativo ? Color.Success : Color.Default)" Size="Size.Small"
+                               OnClick="@(() => AlternarStatus(context))" Tooltip="@(context.Ativo ? "Inativar" : "Ativar")" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Align="Align.Center" Class="pa-4">Nenhum produto cadastrado até o momento.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    <!-- FORMULÁRIO DE CADASTRO / EDIÇÃO UNIFICADO -->
+    <MudPaper Elevation="4" Class="pa-8" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h5" Class="mb-6 font-weight-bold">
+            @(isEdicao ? $"Editando: {descricaoOriginal}" : "Novo Produto")
+        </MudText>
+
+        <MudForm @ref="form" @bind-IsValid="@formValido">
+            <MudGrid>
+                <MudItem xs="12" sm="5">
+                    <MudTextField @bind-Value="produtoModel.Descricao" Label="Descrição do Produto"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="100" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="Guid" Label="Grupo do Produto" Variant="Variant.Outlined"
+                               @bind-Value="produtoModel.GrupoId" Required="true" AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem T="Guid" Value="Guid.Empty" Disabled="true">Selecione um Grupo...</MudSelectItem>
+                        @foreach (var grupo in listaGrupos)
+                        {
+                            <MudSelectItem T="Guid" Value="@grupo.Id">@($"{grupo.Codigo} - {grupo.Descricao}")</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudNumericField @bind-Value="produtoModel.PrecoVenda" Label="Preço de Venda"
+                                     Variant="Variant.Outlined" Format="N2" Culture="@_culture" HideSpinButtons="true" Required="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudTextField @bind-Value="produtoModel.CodigoBarras" Label="Código de Barras (EAN)"
+                                  Variant="Variant.Outlined" MaxLength="50"
+                                  Validation="@(new Func<string, Task<string?>>(ValidarCodigoBarrasEmTempoReal))" />
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudNumericField @bind-Value="produtoModel.QuantidadeEstoque" Label="Estoque Inicial / Atual"
+                                     Variant="Variant.Outlined" Format="N2" Culture="@_culture" HideSpinButtons="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudTextField @bind-Value="produtoModel.Referencia" Label="Referência Interna"
+                                  Variant="Variant.Outlined" MaxLength="100" />
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudTextField @bind-Value="produtoModel.UnidadeVenda" Label="Unidade (Ex: UN, KG)"
+                                  Variant="Variant.Outlined" MaxLength="10" />
+                </MudItem>
+
+                <!-- Botões de Ação Dinâmicos -->
+                <MudItem xs="12" Class="d-flex justify-end mt-4 gap-2">
+                    @if (isEdicao)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Large" OnClick="CancelarEdicao">
+                            Cancelar
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Large" OnClick="SalvarProduto" Class="px-8">
+                            Salvar Alterações
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="SalvarProduto" Class="px-8">
+                            Gravar Produto
+                        </MudButton>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>

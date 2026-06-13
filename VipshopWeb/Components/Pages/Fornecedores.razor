@@ -1,0 +1,172 @@
+﻿@page "/fornecedores"
+@using Microsoft.EntityFrameworkCore
+@using VipshopWeb.Core.Entities
+@inject IDbContextFactory<VipshopDbContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <MudText Typo="Typo.h4" Color="Color.Primary" Class="font-weight-bold mb-4">Cadastro de Fornecedores</MudText>
+    <MudText Typo="Typo.subtitle1" Class="mb-6">Gerenciamento e registros de fornecedores da empresa</MudText>
+
+    <!-- TABELA DE LISTAGEM -->
+    <MudTable Items="@listaFornecedores" Dense="true" Hover="true" Bordered="true" Striped="true" Class="mb-8" Elevation="2">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Fornecedores Cadastrados</MudText>
+            <MudSpacer />
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Razão Social / Nome</MudTh>
+            <MudTh>CNPJ / CPF</MudTh>
+            <MudTh>Inscrição Estadual</MudTh>
+            <MudTh>Prazo de Entrega (Dias)</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Razão Social / Nome">@context.Favorecido.NomeRazaoSocial</MudTd>
+            <MudTd DataLabel="CNPJ / CPF">@context.Favorecido.Documento</MudTd>
+            <MudTd DataLabel="Inscrição Estadual">@(context.InscricaoEstadual ?? "Isento")</MudTd>
+            <MudTd DataLabel="Prazo de Entrega (Dias)">@context.PrazoEntregaEstimadoDias dias</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Align="Align.Center" Class="pa-4">Nenhum fornecedor cadastrado até o momento.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    <!-- FORMULÁRIO DE CADASTRO -->
+    <MudPaper Elevation="4" Class="pa-8" Style="border-radius: 12px;">
+        <MudText Typo="Typo.h5" Class="mb-6 font-weight-bold">Novo Fornecedor</MudText>
+
+        <MudForm @ref="form" @bind-IsValid="@formValido">
+            <MudGrid>
+                <!-- Campos em Comum (Favorecido) -->
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="string" Label="Tipo de Pessoa" Variant="Variant.Outlined"
+                               @bind-Value="favorecidoModel.TipoPessoa" Required="true" AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@("PJ")">Pessoa Jurídica (PJ)</MudSelectItem>
+                        <MudSelectItem Value="@("PF")">Pessoa Física (PF)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudTextField @bind-Value="favorecidoModel.Documento"
+                              Label="CNPJ ou CPF"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Clearable="true"
+                              Mask="@(favorecidoModel.TipoPessoa == "PJ" ? f_cnpjMask : f_cpfMask)" />
+
+
+                <MudItem xs="12" sm="4"></MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="favorecidoModel.NomeRazaoSocial" Label="Razão Social / Nome"
+                                  Variant="Variant.Outlined" Required="true" MaxLength="150" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="favorecidoModel.NomeFantasiaApelido" Label="Nome Fantasia / Apelido"
+                                  Variant="Variant.Outlined" MaxLength="150" />
+                </MudItem>
+
+                <!-- Campos Específicos de Fornecedor -->
+                <MudItem xs="12">
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.button" Color="Color.Primary" Class="font-weight-bold">Informações Logísticas e Fiscais</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="fornecedorModel.InscricaoEstadual" Label="Inscrição Estadual"
+                                  Variant="Variant.Outlined" MaxLength="20" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudNumericField @bind-Value="fornecedorModel.PrazoEntregaEstimadoDias" Label="Prazo de Entrega Estimado (Dias)"
+                                     Variant="Variant.Outlined" Min="0" HideSpinButtons="false" />
+                </MudItem>
+
+                <!-- Botão de Gravação -->
+                <MudItem xs="12" Class="d-flex justify-end mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" OnClick="SalvarFornecedor" Class="px-8">
+                        Gravar Fornecedor
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private IMask f_cpfMask = new PatternMask("000.000.000-00");
+    private IMask f_cnpjMask = new PatternMask("00.000.000/0000-00");
+    private MudForm form = null!;
+    private bool formValido;
+
+    private List<Fornecedor> listaFornecedores = new();
+    private Favorecido favorecidoModel = new() { TipoFavorecidoId = 2, TipoPessoa = "PJ" }; // 2 fixo = Fornecedor
+    private Fornecedor mantenerModel = new();
+    private Fornecedor fornecedorModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var tenantClaim = authState.User.FindFirst("Tenant")?.Value;
+
+        if (!string.IsNullOrEmpty(tenantClaim))
+        {
+            TenantProvider.SetTenant(tenantClaim);
+            await CarregarGrid();
+        }
+    }
+
+    private async Task CarregarGrid()
+    {
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+            listaFornecedores = await context.Fornecedores
+                .Include(f => f.Favorecido)
+                .OrderByDescending(f => f.Favorecido.DataCadastro)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erro ao carregar fornecedores: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SalvarFornecedor()
+    {
+        await form.Validate();
+        if (!formValido)
+        {
+            Snackbar.Add("Por favor, preencha os campos obrigatórios.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            using var context = await DbFactory.CreateDbContextAsync();
+
+            favorecidoModel.Documento = new string(favorecidoModel.Documento.Where(char.IsDigit).ToArray());
+            favorecidoModel.DataCadastro = DateTime.UtcNow;
+
+            fornecedorModel.Favorecido = favorecidoModel;
+            context.Fornecedores.Add(fornecedorModel);
+
+            await context.SaveChangesAsync();
+            Snackbar.Add($"Fornecedor {favorecidoModel.NomeRazaoSocial} gravado com sucesso!", Severity.Success);
+
+            ResetarFormulario();
+            await CarregarGrid();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Falha ao salvar fornecedor: {ex.InnerException?.Message ?? ex.Message}", Severity.Error);
+        }
+    }
+
+    private void ResetarFormulario()
+    {
+        favorecidoModel = new() { TipoFavorecidoId = 2, TipoPessoa = "PJ" };
+        fornecedorModel = new();
+    }
+}
